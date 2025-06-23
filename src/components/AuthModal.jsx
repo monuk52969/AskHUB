@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase"; // 👈 Adjust path if needed
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+} from "firebase/auth";
+import { auth } from "../firebase";
 
 const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState(""); // For signup
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -24,17 +29,16 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         userCredential = await signInWithEmailAndPassword(auth, email, password);
       } else {
         userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName: name });
       }
 
       const user = userCredential.user;
 
       localStorage.setItem("askhub_loggedin", "true");
       localStorage.setItem("askhub_user_email", user.email);
+      localStorage.setItem("askhub_user_name", user.displayName || "");
 
-      if (onLoginSuccess) {
-        onLoginSuccess(user.email);
-      }
-
+      onLoginSuccess(user.email);
       onClose();
       navigate("/dashboard");
     } catch (err) {
@@ -65,6 +69,16 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
         {/* Form */}
         <form className="space-y-4" onSubmit={handleSubmit}>
+          {!isLogin && (
+            <input
+              type="text"
+              placeholder="Full Name"
+              className="w-full px-4 py-2 border rounded"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          )}
           <input
             type="email"
             placeholder="Email"
@@ -94,7 +108,10 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         <p className="text-sm text-center mt-4">
           {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
           <span
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setError("");
+            }}
             className="text-blue-500 cursor-pointer underline"
           >
             {isLogin ? "Sign Up" : "Login"}

@@ -3,13 +3,14 @@ import { Moon, Sun } from "lucide-react";
 import avatarImg from "../assets/avatar.png";
 import Logo from "../assets/logo.png";
 import { useNavigate } from "react-router-dom";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase"; // Adjust path if needed
-
+// ❌ Duplicate removed: import { signInWithEmailAndPassword, ... }
+import { auth } from "../firebase"; // ✅ Use correct firebase instance
+import { onAuthStateChanged } from "firebase/auth"; // ✅ For auth tracking
 
 const Dashboard = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [email, setEmail] = useState("");
+  const [name, setName] = useState(""); // ✅ NEW: Store name
   const [image, setImage] = useState(() =>
     localStorage.getItem("askhub_user_image") || avatarImg
   );
@@ -35,16 +36,16 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const loggedIn = localStorage.getItem("askhub_loggedin");
-    const savedEmail = localStorage.getItem("askhub_user_email");
-    const savedImage = localStorage.getItem("askhub_user_image");
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setEmail(user.email || "");
+        setName(user.displayName || "Anonymous"); // ✅ Show Name if needed
+      } else {
+        navigate("/"); // ✅ User not logged in
+      }
+    });
 
-    if (loggedIn !== "true") {
-      navigate("/");
-    } else {
-      setEmail(savedEmail || "");
-      if (savedImage) setImage(savedImage);
-    }
+    return () => unsubscribe(); // ✅ Clean up
   }, []);
 
   useEffect(() => {
@@ -66,9 +67,8 @@ const Dashboard = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("askhub_loggedin");
-    localStorage.removeItem("askhub_user_email");
-    localStorage.removeItem("askhub_user_image");
+    localStorage.clear(); // ✅ Clear everything
+    auth.signOut(); // ✅ Firebase logout
     navigate("/");
   };
 
@@ -82,10 +82,6 @@ const Dashboard = () => {
   };
 
   const handleRoomCreate = () => {
-    if (rooms.length >= 4) {
-      alert("Only 4 rooms allowed.");
-      return;
-    }
     if (!roomName.trim()) return;
     const updatedRooms = [...rooms, roomName];
     setRooms(updatedRooms);
@@ -120,9 +116,13 @@ const Dashboard = () => {
           <ul className="mt-6 space-y-3 text-gray-700 dark:text-gray-200">
             <li>Dashboard</li>
             <li>Create Post</li>
-            <li className="cursor-pointer" onClick={handleSolveDoubt}>Solve Doubt</li>
+            <li className="cursor-pointer" onClick={handleSolveDoubt}>
+              Solve Doubt
+            </li>
             <li>Create Room</li>
-            <li className="cursor-pointer" onClick={handleAddDoubt}>Total Doubts</li>
+            <li className="cursor-pointer" onClick={handleAddDoubt}>
+              Total Doubts
+            </li>
             <li>Solved Doubts</li>
             <li
               className="cursor-pointer text-red-500 dark:text-red-400"
@@ -144,7 +144,8 @@ const Dashboard = () => {
                 className="w-12 h-12 rounded-full object-cover border-2"
               />
               <div>
-                <p className="text-lg font-semibold">{email}</p>
+                <p className="text-lg font-semibold">{name}</p> {/* ✅ Name */}
+                <p className="text-sm text-gray-500 dark:text-gray-400">{email}</p>
                 <label className="text-xs underline cursor-pointer">
                   Change Image
                   <input
@@ -177,7 +178,7 @@ const Dashboard = () => {
             </div>
             <div className="bg-zinc-300 dark:bg-zinc-800 p-4 rounded shadow">
               <p className="text-sm">Total Rooms</p>
-              <h2 className="text-2xl font-bold">{rooms.length}/4</h2>
+              <h2 className="text-2xl font-bold">{rooms.length}</h2> {/* ✅ Unlimited */}
             </div>
             <div className="bg-zinc-300 dark:bg-zinc-800 p-4 rounded shadow">
               <p className="text-sm">Your Posts</p>
@@ -209,10 +210,14 @@ const Dashboard = () => {
               <h3 className="text-xl font-semibold mb-2">All Posts</h3>
               <ul className="space-y-4">
                 {posts.map((post, index) => (
-                  <li key={index} className="bg-gray-100 dark:bg-zinc-700 p-4 rounded">
+                  <li
+                    key={index}
+                    className="bg-gray-100 dark:bg-zinc-700 p-4 rounded"
+                  >
                     <p>{post.text}</p>
                     <small className="block mt-1 text-sm text-gray-500 dark:text-gray-400">
-                      By {post.author} • {new Date(post.createdAt).toLocaleString()}
+                      By {post.author} •{" "}
+                      {new Date(post.createdAt).toLocaleString()}
                     </small>
                   </li>
                 ))}
@@ -223,7 +228,7 @@ const Dashboard = () => {
           {/* Create Room */}
           <div className="mt-6 bg-zinc-300 dark:bg-zinc-800 p-6 rounded shadow">
             <h3 className="text-xl font-semibold mb-2">Create a Room</h3>
-            <p className="text-sm mb-1">Max 4 members allowed</p>
+            <p className="text-sm mb-1">Add a new room below:</p>
             <input
               type="text"
               value={roomName}
